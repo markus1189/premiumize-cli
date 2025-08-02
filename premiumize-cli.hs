@@ -16,6 +16,7 @@ import qualified Data.Text.IO as T
 import qualified Data.ByteString.Lazy.Char8 as L8
 import Options.Applicative
 import qualified Options.Applicative as OA
+import Options.Applicative (customExecParser, prefs, showHelpOnEmpty, commandGroup)
 import Data.List (intercalate)
 import System.Environment (lookupEnv)
 import System.Exit (exitFailure, exitSuccess)
@@ -515,15 +516,15 @@ commandParser = subparser
   ( command "account" 
       (info (accountCommands <**> helper) 
         (progDesc "Account information and settings" <> fullDesc))
+ <> command "transfer" 
+      (info (transferCommands <**> helper) 
+        (progDesc "Download management and transfer operations" <> fullDesc))
  <> command "folder" 
       (info (folderCommands <**> helper) 
         (progDesc "Manage folders and directory structure" <> fullDesc))
  <> command "item" 
       (info (itemCommands <**> helper) 
         (progDesc "Manage individual files and items" <> fullDesc))
- <> command "transfer" 
-      (info (transferCommands <**> helper) 
-        (progDesc "Download management and transfer operations" <> fullDesc))
  <> command "cache" 
       (info (cacheCommands <**> helper) 
         (progDesc "Check cache availability for files" <> fullDesc))
@@ -702,7 +703,7 @@ runCommand opts cmd = case cmd of
 
 main :: IO ()
 main = do
-  (opts, cmd) <- execParser $
+  (opts, cmd) <- customExecParser (prefs showHelpOnEmpty) $
     info ((,) <$> globalOptionsParser <*> commandParser <**> helper)
       ( fullDesc
      <> progDesc headerText
