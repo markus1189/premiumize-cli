@@ -3,37 +3,37 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 
 module PremiumizeCli.API
-  ( getAccountInfo
-  , listFolder
-  , createFolder
-  , renameFolder
-  , deleteFolder
-  , searchFolder
-  , listAllItems
-  , deleteItem
-  , renameItem
-  , getItemDetails
-  , createTransfer
-  , createDirectDownload
-  , listTransfers
-  , deleteTransfer
-  , listServices
-  , checkCache
-  ) where
+  ( getAccountInfo,
+    listFolder,
+    createFolder,
+    renameFolder,
+    deleteFolder,
+    searchFolder,
+    listAllItems,
+    deleteItem,
+    renameItem,
+    getItemDetails,
+    createTransfer,
+    createDirectDownload,
+    listTransfers,
+    deleteTransfer,
+    listServices,
+    checkCache,
+  )
+where
 
-import Network.Wreq (get, post, defaults, param, responseBody)
-import qualified Network.Wreq as W
+import Control.Exception (SomeException, try)
 import Control.Lens
 import Data.Aeson hiding ((.=))
 import qualified Data.Aeson as A
+import qualified Data.ByteString.Lazy.Char8 as L8
 import Data.Text (Text)
 import qualified Data.Text as T
-import qualified Data.ByteString.Lazy.Char8 as L8
+import Network.Wreq (defaults, get, param, post, responseBody)
+import qualified Network.Wreq as W
+import PremiumizeCli.Types
 import System.Environment (lookupEnv)
 import System.Exit (exitFailure)
-import Control.Exception (try, SomeException)
-
-import PremiumizeCli.Types
 
 -- Base URL for Premiumize.me API
 baseURL :: String
@@ -49,7 +49,7 @@ makeAuthenticatedRequest url opts = do
       exitFailure
     Just key -> do
       let authOpts = opts & param "apikey" .~ [T.pack key]
-      W.getWith authOpts (baseURL ++ url)
+      W.getWith authOpts (baseURL <> url)
 
 makeAuthenticatedPost :: String -> [W.FormParam] -> IO (W.Response L8.ByteString)
 makeAuthenticatedPost url params = do
@@ -60,60 +60,57 @@ makeAuthenticatedPost url params = do
       exitFailure
     Just key -> do
       let authParams = ("apikey" W.:= T.pack key) : params
-      post (baseURL ++ url) authParams
+      post (baseURL <> url) authParams
 
 -- Utility Functions
 handleError :: Bool -> String -> IO ()
 handleError jsonOutput msg = do
   if jsonOutput
-    then L8.putStrLn $ encode $ object ["error" A..= msg]
-    else putStrLn $ "Error: " ++ msg
+    then L8.putStrLn . encode $ object ["error" A..= msg]
+    else putStrLn $ "Error: " <> msg
   exitFailure
 
 printAccountInfo :: AccountInfo -> IO ()
-printAccountInfo AccountInfo{..} = do
-  putStrLn $ "Customer ID: " ++ T.unpack customer_id
-  putStrLn $ "Username: " ++ T.unpack username
-  putStrLn $ "Limit Used: " ++ show limit_used ++ "%"
-  putStrLn $ "Space Used: " ++ show space_used ++ " bytes"
+printAccountInfo AccountInfo {..} = do
+  putStrLn $ "Customer ID: " <> T.unpack customer_id
+  putStrLn $ "Username: " <> T.unpack username
+  putStrLn $ "Limit Used: " <> (show limit_used <> "%")
+  putStrLn $ "Space Used: " <> (show space_used <> " bytes")
   case premium_until of
-    Just until -> putStrLn $ "Premium Until: " ++ T.unpack until
+    Just until -> putStrLn $ "Premium Until: " <> T.unpack until
     Nothing -> putStrLn "Premium Until: N/A"
 
 printFolderItem :: FolderItem -> IO ()
-printFolderItem FolderItem{..} = do
-  putStrLn $ T.unpack id ++ " | " ++ T.unpack name ++ " | " ++ T.unpack type_ ++ 
-    maybe "" ((" | " ++) . show) size
+printFolderItem FolderItem {..} = do
+  putStrLn $ T.unpack id <> (" | " <> (T.unpack name <> (" | " <> (T.unpack type_ <> maybe "" ((" | " <>) . show) size))))
 
 printTransfer :: Transfer -> IO ()
-printTransfer Transfer{..} = do
-  putStrLn $ T.unpack transfer_id ++ " | " ++ T.unpack transfer_name ++ " | " ++ T.unpack transfer_status ++ 
-    " | " ++ show transfer_progress ++ "% | " ++ T.unpack transfer_src
+printTransfer Transfer {..} = do
+  putStrLn $ T.unpack transfer_id <> (" | " <> (T.unpack transfer_name <> (" | " <> (T.unpack transfer_status <> (" | " <> (show transfer_progress <> ("% | " <> T.unpack transfer_src)))))))
 
 printCacheResult :: CacheResult -> IO ()
-printCacheResult CacheResult{..} = do
-  putStrLn $ T.unpack filename ++ " | " ++ show filesize ++ " bytes | " ++ 
-    (if cached then "CACHED" else "NOT CACHED")
+printCacheResult CacheResult {..} = do
+  putStrLn $ T.unpack filename <> (" | " <> (show filesize <> (" bytes | " <> (if cached then "CACHED" else "NOT CACHED"))))
 
 -- API Implementation Functions
 getAccountInfo :: GlobalOptions -> IO ()
-getAccountInfo GlobalOptions{..} = do
+getAccountInfo GlobalOptions {..} = do
   result <- try $ makeAuthenticatedRequest "/account/info" defaults
   case result of
     Left e -> handleError optJson (show (e :: SomeException))
     Right r -> do
       let body = r ^. responseBody
       case eitherDecode body of
-        Left err -> handleError optJson ("JSON parse error: " ++ err)
+        Left err -> handleError optJson ("JSON parse error: " <> err)
         Right (ApiResponse status msg (Just info :: Maybe AccountInfo)) ->
           if optJson
             then L8.putStrLn $ encode info
             else printAccountInfo info
         Right (ApiResponse status msg Nothing) ->
-          handleError optJson ("API error: " ++ T.unpack status ++ maybe "" ((" - " ++) . T.unpack) msg)
+          handleError optJson ("API error: " <> (T.unpack status <> maybe "" ((" - " <>) . T.unpack) msg))
 
 listFolder :: GlobalOptions -> Maybe Text -> IO ()
-listFolder GlobalOptions{..} folderId = do
+listFolder GlobalOptions {..} folderId = do
   let opts = case folderId of
         Just fid -> defaults & param "id" .~ [fid]
         Nothing -> defaults
@@ -123,20 +120,21 @@ listFolder GlobalOptions{..} folderId = do
     Right r -> do
       let body = r ^. responseBody
       case eitherDecode body of
-        Left err -> handleError optJson ("JSON parse error: " ++ err)
+        Left err -> handleError optJson ("JSON parse error: " <> err)
         Right (ApiResponse status msg (Just items :: Maybe [FolderItem])) ->
           if optJson
             then L8.putStrLn $ encode items
             else mapM_ printFolderItem items
         Right (ApiResponse status msg Nothing) ->
-          handleError optJson ("API error: " ++ T.unpack status ++ maybe "" ((" - " ++) . T.unpack) msg)
+          handleError optJson ("API error: " <> (T.unpack status <> maybe "" ((" - " <>) . T.unpack) msg))
 
 createFolder :: GlobalOptions -> Text -> Maybe Text -> IO ()
-createFolder GlobalOptions{..} folderName parentId = do
-  let params = ("name" W.:= folderName) : 
-               case parentId of
-                 Just pid -> [("parent_id" W.:= pid)]
-                 Nothing -> []
+createFolder GlobalOptions {..} folderName parentId = do
+  let params =
+        ("name" W.:= folderName)
+          : case parentId of
+            Just pid -> ["parent_id" W.:= pid]
+            Nothing -> []
   result <- try $ makeAuthenticatedPost "/folder/create" params
   case result of
     Left e -> handleError optJson (show (e :: SomeException))
@@ -145,15 +143,15 @@ createFolder GlobalOptions{..} folderName parentId = do
       if optJson
         then L8.putStrLn body
         else case eitherDecode body of
-          Left err -> handleError optJson ("JSON parse error: " ++ err)
+          Left err -> handleError optJson ("JSON parse error: " <> err)
           Right (ApiResponse status msg (_ :: Maybe Value)) ->
             if status == "success"
               then putStrLn "Folder created successfully"
-              else handleError optJson ("API error: " ++ T.unpack status ++ maybe "" ((" - " ++) . T.unpack) msg)
+              else handleError optJson ("API error: " <> (T.unpack status <> maybe "" ((" - " <>) . T.unpack) msg))
 
 renameFolder :: GlobalOptions -> Text -> Text -> IO ()
-renameFolder GlobalOptions{..} folderId newName = do
-  let params = [("id" W.:= folderId), ("name" W.:= newName)]
+renameFolder GlobalOptions {..} folderId newName = do
+  let params = ["id" W.:= folderId, "name" W.:= newName]
   result <- try $ makeAuthenticatedPost "/folder/rename" params
   case result of
     Left e -> handleError optJson (show (e :: SomeException))
@@ -162,15 +160,15 @@ renameFolder GlobalOptions{..} folderId newName = do
       if optJson
         then L8.putStrLn body
         else case eitherDecode body of
-          Left err -> handleError optJson ("JSON parse error: " ++ err)
+          Left err -> handleError optJson ("JSON parse error: " <> err)
           Right (ApiResponse status msg (_ :: Maybe Value)) ->
             if status == "success"
               then putStrLn "Folder renamed successfully"
-              else handleError optJson ("API error: " ++ T.unpack status ++ maybe "" ((" - " ++) . T.unpack) msg)
+              else handleError optJson ("API error: " <> (T.unpack status <> maybe "" ((" - " <>) . T.unpack) msg))
 
 deleteFolder :: GlobalOptions -> Text -> IO ()
-deleteFolder GlobalOptions{..} folderId = do
-  let params = [("id" W.:= folderId)]
+deleteFolder GlobalOptions {..} folderId = do
+  let params = ["id" W.:= folderId]
   result <- try $ makeAuthenticatedPost "/folder/delete" params
   case result of
     Left e -> handleError optJson (show (e :: SomeException))
@@ -179,14 +177,14 @@ deleteFolder GlobalOptions{..} folderId = do
       if optJson
         then L8.putStrLn body
         else case eitherDecode body of
-          Left err -> handleError optJson ("JSON parse error: " ++ err)
+          Left err -> handleError optJson ("JSON parse error: " <> err)
           Right (ApiResponse status msg (_ :: Maybe Value)) ->
             if status == "success"
               then putStrLn "Folder deleted successfully"
-              else handleError optJson ("API error: " ++ T.unpack status ++ maybe "" ((" - " ++) . T.unpack) msg)
+              else handleError optJson ("API error: " <> (T.unpack status <> maybe "" ((" - " <>) . T.unpack) msg))
 
 searchFolder :: GlobalOptions -> Text -> IO ()
-searchFolder GlobalOptions{..} query = do
+searchFolder GlobalOptions {..} query = do
   let opts = defaults & param "q" .~ [query]
   result <- try $ makeAuthenticatedRequest "/folder/search" opts
   case result of
@@ -194,33 +192,33 @@ searchFolder GlobalOptions{..} query = do
     Right r -> do
       let body = r ^. responseBody
       case eitherDecode body of
-        Left err -> handleError optJson ("JSON parse error: " ++ err)
+        Left err -> handleError optJson ("JSON parse error: " <> err)
         Right (ApiResponse status msg (Just items :: Maybe [FolderItem])) ->
           if optJson
             then L8.putStrLn $ encode items
             else mapM_ printFolderItem items
         Right (ApiResponse status msg Nothing) ->
-          handleError optJson ("API error: " ++ T.unpack status ++ maybe "" ((" - " ++) . T.unpack) msg)
+          handleError optJson ("API error: " <> (T.unpack status <> maybe "" ((" - " <>) . T.unpack) msg))
 
 listAllItems :: GlobalOptions -> IO ()
-listAllItems GlobalOptions{..} = do
+listAllItems GlobalOptions {..} = do
   result <- try $ makeAuthenticatedRequest "/item/listall" defaults
   case result of
     Left e -> handleError optJson (show (e :: SomeException))
     Right r -> do
       let body = r ^. responseBody
       case eitherDecode body of
-        Left err -> handleError optJson ("JSON parse error: " ++ err)
+        Left err -> handleError optJson ("JSON parse error: " <> err)
         Right (ApiResponse status msg (Just items :: Maybe [FolderItem])) ->
           if optJson
             then L8.putStrLn $ encode items
             else mapM_ printFolderItem items
         Right (ApiResponse status msg Nothing) ->
-          handleError optJson ("API error: " ++ T.unpack status ++ maybe "" ((" - " ++) . T.unpack) msg)
+          handleError optJson ("API error: " <> (T.unpack status <> maybe "" ((" - " <>) . T.unpack) msg))
 
 deleteItem :: GlobalOptions -> Text -> IO ()
-deleteItem GlobalOptions{..} itemId = do
-  let params = [("id" W.:= itemId)]
+deleteItem GlobalOptions {..} itemId = do
+  let params = ["id" W.:= itemId]
   result <- try $ makeAuthenticatedPost "/item/delete" params
   case result of
     Left e -> handleError optJson (show (e :: SomeException))
@@ -229,15 +227,15 @@ deleteItem GlobalOptions{..} itemId = do
       if optJson
         then L8.putStrLn body
         else case eitherDecode body of
-          Left err -> handleError optJson ("JSON parse error: " ++ err)
+          Left err -> handleError optJson ("JSON parse error: " <> err)
           Right (ApiResponse status msg (_ :: Maybe Value)) ->
             if status == "success"
               then putStrLn "Item deleted successfully"
-              else handleError optJson ("API error: " ++ T.unpack status ++ maybe "" ((" - " ++) . T.unpack) msg)
+              else handleError optJson ("API error: " <> (T.unpack status <> maybe "" ((" - " <>) . T.unpack) msg))
 
 renameItem :: GlobalOptions -> Text -> Text -> IO ()
-renameItem GlobalOptions{..} itemId newName = do
-  let params = [("id" W.:= itemId), ("name" W.:= newName)]
+renameItem GlobalOptions {..} itemId newName = do
+  let params = ["id" W.:= itemId, "name" W.:= newName]
   result <- try $ makeAuthenticatedPost "/item/rename" params
   case result of
     Left e -> handleError optJson (show (e :: SomeException))
@@ -246,14 +244,14 @@ renameItem GlobalOptions{..} itemId newName = do
       if optJson
         then L8.putStrLn body
         else case eitherDecode body of
-          Left err -> handleError optJson ("JSON parse error: " ++ err)
+          Left err -> handleError optJson ("JSON parse error: " <> err)
           Right (ApiResponse status msg (_ :: Maybe Value)) ->
             if status == "success"
               then putStrLn "Item renamed successfully"
-              else handleError optJson ("API error: " ++ T.unpack status ++ maybe "" ((" - " ++) . T.unpack) msg)
+              else handleError optJson ("API error: " <> (T.unpack status <> maybe "" ((" - " <>) . T.unpack) msg))
 
 getItemDetails :: GlobalOptions -> Text -> IO ()
-getItemDetails GlobalOptions{..} itemId = do
+getItemDetails GlobalOptions {..} itemId = do
   let opts = defaults & param "id" .~ [itemId]
   result <- try $ makeAuthenticatedRequest "/item/details" opts
   case result of
@@ -261,20 +259,21 @@ getItemDetails GlobalOptions{..} itemId = do
     Right r -> do
       let body = r ^. responseBody
       case eitherDecode body of
-        Left err -> handleError optJson ("JSON parse error: " ++ err)
+        Left err -> handleError optJson ("JSON parse error: " <> err)
         Right (ApiResponse status msg (Just item :: Maybe FolderItem)) ->
           if optJson
             then L8.putStrLn $ encode item
             else printFolderItem item
         Right (ApiResponse status msg Nothing) ->
-          handleError optJson ("API error: " ++ T.unpack status ++ maybe "" ((" - " ++) . T.unpack) msg)
+          handleError optJson ("API error: " <> (T.unpack status <> maybe "" ((" - " <>) . T.unpack) msg))
 
 createTransfer :: GlobalOptions -> Text -> Maybe Text -> IO ()
-createTransfer GlobalOptions{..} srcUrl folderId = do
-  let params = ("src" W.:= srcUrl) : 
-               case folderId of
-                 Just fid -> [("folder_id" W.:= fid)]
-                 Nothing -> []
+createTransfer GlobalOptions {..} srcUrl folderId = do
+  let params =
+        ("src" W.:= srcUrl)
+          : case folderId of
+            Just fid -> ["folder_id" W.:= fid]
+            Nothing -> []
   result <- try $ makeAuthenticatedPost "/transfer/create" params
   case result of
     Left e -> handleError optJson (show (e :: SomeException))
@@ -283,15 +282,15 @@ createTransfer GlobalOptions{..} srcUrl folderId = do
       if optJson
         then L8.putStrLn body
         else case eitherDecode body of
-          Left err -> handleError optJson ("JSON parse error: " ++ err)
+          Left err -> handleError optJson ("JSON parse error: " <> err)
           Right (ApiResponse status msg (_ :: Maybe Value)) ->
             if status == "success"
               then putStrLn "Transfer created successfully"
-              else handleError optJson ("API error: " ++ T.unpack status ++ maybe "" ((" - " ++) . T.unpack) msg)
+              else handleError optJson ("API error: " <> (T.unpack status <> maybe "" ((" - " <>) . T.unpack) msg))
 
 createDirectDownload :: GlobalOptions -> Text -> IO ()
-createDirectDownload GlobalOptions{..} srcUrl = do
-  let params = [("src" W.:= srcUrl)]
+createDirectDownload GlobalOptions {..} srcUrl = do
+  let params = ["src" W.:= srcUrl]
   result <- try $ makeAuthenticatedPost "/transfer/directdl" params
   case result of
     Left e -> handleError optJson (show (e :: SomeException))
@@ -300,31 +299,32 @@ createDirectDownload GlobalOptions{..} srcUrl = do
       if optJson
         then L8.putStrLn body
         else case eitherDecode body of
-          Left err -> handleError optJson ("JSON parse error: " ++ err)
+          Left err -> handleError optJson ("JSON parse error: " <> err)
           Right (ApiResponse status msg (Just url :: Maybe Text)) ->
-            putStrLn $ "Direct download URL: " ++ T.unpack url
+            putStrLn $ "Direct download URL: " <> T.unpack url
           Right (ApiResponse status msg Nothing) ->
-            handleError optJson ("API error: " ++ T.unpack status ++ maybe "" ((" - " ++) . T.unpack) msg)
+            handleError optJson ("API error: " <> (T.unpack status <> maybe "" ((" - " <>) . T.unpack) msg))
 
 listTransfers :: GlobalOptions -> IO ()
-listTransfers GlobalOptions{..} = do
+listTransfers GlobalOptions {..} = do
   result <- try $ makeAuthenticatedRequest "/transfer/list" defaults
   case result of
     Left e -> handleError optJson (show (e :: SomeException))
     Right r -> do
       let body = r ^. responseBody
       case eitherDecode body of
-        Left err -> handleError optJson ("JSON parse error: " ++ err)
+        Left err -> handleError optJson ("JSON parse error: " <> err)
         Right (TransferListResponse status transfers) ->
           if status == "success"
-            then if optJson
-              then L8.putStrLn $ encode transfers
-              else mapM_ printTransfer transfers
-            else handleError optJson ("API error: " ++ T.unpack status)
+            then
+              if optJson
+                then L8.putStrLn $ encode transfers
+                else mapM_ printTransfer transfers
+            else handleError optJson ("API error: " <> T.unpack status)
 
 deleteTransfer :: GlobalOptions -> Text -> IO ()
-deleteTransfer GlobalOptions{..} transferId = do
-  let params = [("id" W.:= transferId)]
+deleteTransfer GlobalOptions {..} transferId = do
+  let params = ["id" W.:= transferId]
   result <- try $ makeAuthenticatedPost "/transfer/delete" params
   case result of
     Left e -> handleError optJson (show (e :: SomeException))
@@ -333,14 +333,14 @@ deleteTransfer GlobalOptions{..} transferId = do
       if optJson
         then L8.putStrLn body
         else case eitherDecode body of
-          Left err -> handleError optJson ("JSON parse error: " ++ err)
+          Left err -> handleError optJson ("JSON parse error: " <> err)
           Right (ApiResponse status msg (_ :: Maybe Value)) ->
             if status == "success"
               then putStrLn "Transfer deleted successfully"
-              else handleError optJson ("API error: " ++ T.unpack status ++ maybe "" ((" - " ++) . T.unpack) msg)
+              else handleError optJson ("API error: " <> (T.unpack status <> maybe "" ((" - " <>) . T.unpack) msg))
 
 listServices :: GlobalOptions -> IO ()
-listServices GlobalOptions{..} = do
+listServices GlobalOptions {..} = do
   result <- try $ makeAuthenticatedRequest "/services/list" defaults
   case result of
     Left e -> handleError optJson (show (e :: SomeException))
@@ -349,14 +349,14 @@ listServices GlobalOptions{..} = do
       if optJson
         then L8.putStrLn body
         else case eitherDecode body of
-          Left err -> handleError optJson ("JSON parse error: " ++ err)
+          Left err -> handleError optJson ("JSON parse error: " <> err)
           Right (ApiResponse status msg (Just services :: Maybe [Text])) ->
             mapM_ (putStrLn . T.unpack) services
           Right (ApiResponse status msg Nothing) ->
-            handleError optJson ("API error: " ++ T.unpack status ++ maybe "" ((" - " ++) . T.unpack) msg)
+            handleError optJson ("API error: " <> (T.unpack status <> maybe "" ((" - " <>) . T.unpack) msg))
 
 checkCache :: GlobalOptions -> [Text] -> IO ()
-checkCache GlobalOptions{..} items = do
+checkCache GlobalOptions {..} items = do
   let opts = defaults & param "items" .~ [T.intercalate "," items]
   result <- try $ makeAuthenticatedRequest "/cache/check" opts
   case result of
@@ -364,10 +364,10 @@ checkCache GlobalOptions{..} items = do
     Right r -> do
       let body = r ^. responseBody
       case eitherDecode body of
-        Left err -> handleError optJson ("JSON parse error: " ++ err)
+        Left err -> handleError optJson ("JSON parse error: " <> err)
         Right (ApiResponse status msg (Just results :: Maybe [CacheResult])) ->
           if optJson
             then L8.putStrLn $ encode results
             else mapM_ printCacheResult results
         Right (ApiResponse status msg Nothing) ->
-          handleError optJson ("API error: " ++ T.unpack status ++ maybe "" ((" - " ++) . T.unpack) msg)
+          handleError optJson ("API error: " <> (T.unpack status <> maybe "" ((" - " <>) . T.unpack) msg))

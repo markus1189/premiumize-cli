@@ -61,10 +61,10 @@
             echo "  • cabal repl                # Start REPL"
             echo ""
             echo "🎨 Code formatting & linting:"
-            echo "  • ormolu --mode inplace src/ # Format Haskell code"
-            echo "  • ormolu --mode check src/   # Check Haskell formatting"
-            echo "  • hlint src/                 # Lint Haskell code"
-            echo "  • nix flake check            # Run all checks"
+            echo "  • ormolu --mode inplace --unsafe src/ app/ test/ # Format Haskell code"
+            echo "  • ormolu --mode check --unsafe src/ app/ test/   # Check Haskell formatting"
+            echo "  • hlint src/                                     # Lint Haskell code"
+            echo "  • nix flake check                                # Run all checks"
             echo ""
             echo "📋 Don't forget to set PREMIUMIZE_API_KEY environment variable!"
           '';
@@ -115,7 +115,7 @@
               buildInputs = [ haskellPackages.ormolu ];
             } ''
             cd ${./.}
-            ormolu --mode check $(find src app test -name "*.hs" 2>/dev/null || true)
+            ormolu --mode check --unsafe $(find src app test -name "*.hs" 2>/dev/null || true)
             touch $out
           '';
 
