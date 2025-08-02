@@ -55,10 +55,16 @@
             echo "  • hlint, ormolu, hls"
             echo ""
             echo "🔧 Quick start:"
-            echo "  • cabal build          # Build the project"
-            echo "  • cabal run             # Run the CLI"
-            echo "  • cabal test            # Run tests"
-            echo "  • cabal repl            # Start REPL"
+            echo "  • cabal build               # Build the project"
+            echo "  • cabal run                 # Run the CLI"
+            echo "  • cabal test                # Run tests"
+            echo "  • cabal repl                # Start REPL"
+            echo ""
+            echo "🎨 Code formatting & linting:"
+            echo "  • ormolu --mode inplace src/ # Format Haskell code"
+            echo "  • ormolu --mode check src/   # Check Haskell formatting"
+            echo "  • hlint src/                 # Lint Haskell code"
+            echo "  • nix flake check            # Run all checks"
             echo ""
             echo "📋 Don't forget to set PREMIUMIZE_API_KEY environment variable!"
           '';
@@ -93,13 +99,23 @@
         checks = {
           build = premiumize-cli;
 
-          # Add format check
-          format-check = pkgs.runCommand "format-check"
+          # Add Nix format check
+          nix-format-check = pkgs.runCommand "nix-format-check"
             {
               buildInputs = [ pkgs.nixpkgs-fmt ];
             } ''
             cd ${./.}
             nixpkgs-fmt --check flake.nix
+            touch $out
+          '';
+
+          # Add Ormolu format check
+          ormolu-format-check = pkgs.runCommand "ormolu-format-check"
+            {
+              buildInputs = [ haskellPackages.ormolu ];
+            } ''
+            cd ${./.}
+            ormolu --mode check $(find src app test -name "*.hs" 2>/dev/null || true)
             touch $out
           '';
 
