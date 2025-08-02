@@ -1,0 +1,71 @@
+cabal-version: 3.0
+name: premiumize-cli
+version: 1.0.0
+synopsis: CLI tool for Premiumize.me API
+description: A command-line interface for managing downloads, transfers, and cloud storage on Premiumize.me
+category: Network, Web
+license: MIT
+author: Your Name
+maintainer: your.email@example.com
+copyright: 2025 Your Name
+homepage: https://github.com/yourusername/premiumize-cli
+bug-reports: https://github.com/yourusername/premiumize-cli/issues
+build-type: Simple
+extra-source-files: CHANGELOG.md, README.md
+
+common shared-properties
+  default-language: Haskell2010
+  ghc-options:
+    -Wall
+    -Wcompat
+    -Widentities
+    -Wincomplete-record-updates
+    -Wincomplete-uni-patterns
+    -Wpartial-fields
+    -Wredundant-constraints
+    -fhide-source-paths
+    -funbox-strict-fields
+
+library
+  import: shared-properties
+  exposed-modules:
+    PremiumizeCli.Types
+    PremiumizeCli.API
+    PremiumizeCli.CLI
+  hs-source-dirs: src
+  build-depends:
+    base >= 4.14 && < 5,
+    aeson >= 2.0 && < 3,
+    text >= 1.2 && < 3,
+    bytestring >= 0.10 && < 1,
+    wreq >= 0.5 && < 1,
+    lens >= 4.19 && < 6,
+    optparse-applicative >= 0.16 && < 1,
+    transformers >= 0.5 && < 1
+
+executable premiumize-cli
+  import: shared-properties
+  main-is: Main.hs
+  hs-source-dirs: app
+  build-depends:
+    base,
+    premiumize-cli
+  ghc-options:
+    -threaded
+    -rtsopts
+    -with-rtsopts=-N
+
+test-suite premiumize-cli-test
+  import: shared-properties
+  type: exitcode-stdio-1.0
+  main-is: Spec.hs
+  hs-source-dirs: test
+  build-depends:
+    base,
+    premiumize-cli,
+    hspec >= 2.7 && < 3,
+    QuickCheck >= 2.14 && < 3
+  ghc-options:
+    -threaded
+    -rtsopts
+    -with-rtsopts=-N
