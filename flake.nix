@@ -10,12 +10,12 @@
     flake-utils.lib.eachDefaultSystem (system:
       let
         pkgs = nixpkgs.legacyPackages.${system};
-        
+
         haskellPackages = pkgs.haskellPackages;
-        
+
         # Define the Haskell package
-        premiumize-cli = haskellPackages.callCabal2nix "premiumize-cli" ./. {};
-        
+        premiumize-cli = haskellPackages.callCabal2nix "premiumize-cli" ./. { };
+
         # Development tools
         devTools = with pkgs; [
           # Haskell development
@@ -25,19 +25,20 @@
           haskellPackages.hlint
           haskellPackages.ormolu
           haskellPackages.hpack
-          
+
           # General development tools
           git
           curl
           jq
-          
+
           # Build tools
           pkg-config
           zlib
           zlib.dev
         ];
 
-      in {
+      in
+      {
         # Development shell
         devShells.default = pkgs.mkShell {
           buildInputs = devTools ++ [
@@ -45,7 +46,7 @@
             pkgs.which
             pkgs.findutils
           ];
-          
+
           shellHook = ''
             echo "🚀 Premiumize CLI Development Environment"
             echo "📦 Available tools:"
@@ -61,7 +62,7 @@
             echo ""
             echo "📋 Don't forget to set PREMIUMIZE_API_KEY environment variable!"
           '';
-          
+
           # Set up environment for Haskell development
           NIX_GHC_LIBDIR = "${haskellPackages.ghc}/lib/ghc-${haskellPackages.ghc.version}";
         };
@@ -78,7 +79,7 @@
             type = "app";
             program = "${premiumize-cli}/bin/premiumize-cli";
           };
-          
+
           premiumize-cli = {
             type = "app";
             program = "${premiumize-cli}/bin/premiumize-cli";
@@ -91,25 +92,27 @@
         # Checks for CI/CD
         checks = {
           build = premiumize-cli;
-          
+
           # Add format check
-          format-check = pkgs.runCommand "format-check" {
-            buildInputs = [ pkgs.nixpkgs-fmt ];
-          } ''
+          format-check = pkgs.runCommand "format-check"
+            {
+              buildInputs = [ pkgs.nixpkgs-fmt ];
+            } ''
             cd ${./.}
             nixpkgs-fmt --check flake.nix
+            touch $out
+          '';
+
+          # Add hlint check
+          hlint-check = pkgs.runCommand "hlint-check"
+            {
+              buildInputs = [ haskellPackages.hlint ];
+            } ''
+            cd ${./.}
+            hlint src/ app/ test/
             touch $out
           '';
         };
       });
 
-  # Metadata
-  nixConfig = {
-    extra-substituters = [
-      "https://cache.nixos.org/"
-    ];
-    extra-trusted-public-keys = [
-      "cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY="
-    ];
-  };
 }

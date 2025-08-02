@@ -1,0 +1,64 @@
+# HLint configuration for premiumize-cli
+# https://github.com/ndmitchell/hlint#readme
+
+# Specify additional command line arguments
+- arguments: [--color]
+
+# Control which extensions/flags/modules/functions can be used
+- extensions:
+  - default: false # all extensions off by default
+  - name: 
+    - OverloadedStrings
+    - DeriveGeneric
+    - RecordWildCards
+    - ScopedTypeVariables
+
+# Add custom warnings
+- warn: {lhs: "foldl", rhs: "foldl'", name: "Use foldl'"}
+- warn: {lhs: "foldl1", rhs: "foldl1'", name: "Use foldl1'"}
+
+# Ignore some warnings for this project
+- ignore:
+    name: "Use camelCase"
+    within: "PremiumizeCli.Types" # API response fields use snake_case
+
+- ignore:
+    name: "Use newtype instead of data"
+    within: "PremiumizeCli.Types" # API types need multiple fields
+
+- ignore:
+    name: "Avoid lambda using `infix`"
+    within: "PremiumizeCli.API" # HTTP parameter construction is clearer with lambdas
+
+# Custom rules for this project
+- warn:
+    lhs: "putStrLn (show x)"
+    rhs: "print x"
+    name: "Use print instead of putStrLn . show"
+
+- warn:
+    lhs: "T.unpack . T.pack"
+    rhs: "id"
+    name: "Redundant Text conversion"
+
+# Specify files/directories to check
+- modules:
+  - {name: [Data.Set, Data.HashSet], as: Set}
+  - {name: [Data.Map, Data.HashMap.Strict], as: Map}
+
+# Builtin hints to enable/disable
+- group:
+    name: generalise
+    enabled: true
+    
+- group:
+    name: dollar
+    enabled: true
+
+- group:
+    name: concatMap
+    enabled: true
+
+# Function-specific hints
+- functions:
+  - {name: unsafePerformIO, within: []} # Ban unsafePerformIO everywhere
